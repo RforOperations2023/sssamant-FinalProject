@@ -31,30 +31,39 @@ library(tidyverse)
 
 # Load and clean  data ----------------------------------------------
 ev_data <- read_csv("my_data_new.csv")
-ev_data <- ev_data %>% rename(latitude = `Latitude`)
-ev_data <- ev_data %>% rename(longitude = `Longitude`)
-ev_data$party<-str_to_title(ev_data$party)
-# ev_data_sf <- st_as_sf(ev_data1, coords = c("Longitude", "Latitude"), crs = "+proj=longlat +datum=NAD83 +no_defs")
-# ev_data <- st_transform(ev_data_sf, "+proj=longlat +datum=WGS84")
+ev_data <- ev_data %>% rename(latitude = `Latitude`) #Renaming the column name to be case sensituve
+ev_data <- ev_data %>% rename(longitude = `Longitude`)#Renaming the column name to be case sensituve
+ev_data$party<-str_to_title(ev_data$party) #I want all entires "Republican" or "Democratic" to be case senitive
 
 
 # County data and merging files
-urlfile="https://raw.githubusercontent.com/tonmcg/US_County_Level_Election_Results_08-20/master/2020_US_County_Level_Presidential_Results.csv"
-counties<-read_csv(url(urlfile))
-counties <- counties %>% rename(GEOID = `county_fips`)
+counties <- ev_data %>%
+  select(county_fips, county_name, State, party) %>%
+  distinct() #Selecting only distinct entries of fips_number, county_name, state, party for map 1 (and for left join)
+
+
+counties <- counties[complete.cases(counties), ] #Dropping all null and NaN Values
+counties <- na.omit(counties)
+counties <- counties %>% mutate(Fips_str = as.character(county_fips)) # Convert Fips_number to string column
+# Add leading zero to 4-digit numbers in Fips_str column
+counties$Fips_str <- ifelse(nchar(counties$Fips_str) == 4, paste0("0", counties$Fips_str), counties$Fips_str) #This had to be done sice the fips column is numeric, and has to be converted into a string
+
+
+# Print the new dataframe
+counties
+counties <- counties %>% rename(GEOID = `Fips_str`)
 lines.load <- st_read("./cb_2018_us_county_500k/cb_2018_us_county_500k.shp")
-#lines.load <- st_transform(lines.load, 4326)
 
-
+#Joining .shp file with counties 
 co <- lines.load %>%
   left_join(counties, by = c("GEOID" = "GEOID"))
-co <- co %>% mutate (party = case_when(per_gop < per_dem ~ "Democratic", per_gop > per_dem ~ "Republican"))
 
-    icons <- awesomeIconList(
-                              MS4 = makeAwesomeIcon(icon = "road", library = "fa", markerColor = "gray"),
-                              Combined = makeAwesomeIcon(icon = "cloud", library = "fa", markerColor = "blue"),
-                              `Non-combined` = makeAwesomeIcon(icon = "tint", library = "fa", markerColor = "green"),
-                              `On-site management` = makeAwesomeIcon(icon = "building-o", library = "fa", markerColor = "cadetblue"))
+
+icons <- awesomeIconList(
+  MS4 = makeAwesomeIcon(icon = "road", library = "fa", markerColor = "gray"),
+  Combined = makeAwesomeIcon(icon = "cloud", library = "fa", markerColor = "blue"),
+  `Non-combined` = makeAwesomeIcon(icon = "tint", library = "fa", markerColor = "green"),
+  `On-site management` = makeAwesomeIcon(icon = "building-o", library = "fa", markerColor = "cadetblue"))
 
 
 
@@ -62,36 +71,36 @@ ui <- fluidPage(
   theme = shinythemes::shinytheme("yeti"),
   titlePanel(title=div(img(height = 105, width = 300, src="cs2.png") , "Politics Behind Green Energy"), windowTitle = "myBrowserTitle"),
   sidebarLayout(
-        sidebarPanel(
-                  radioButtons(inputId = "selected_type",
-                      label = "Select Party",
-                                choices = c("Republican", "Democratic" ),
-                                selected = "Democratic"),
-                    hr(),
-                    # Reference map description
-                    h6("Reference Map: Counties by their partisan association"),
-                    h6("Red = Republican Counties | Blue = Democrat Counties"),
+    sidebarPanel(
+      radioButtons(inputId = "selected_type",
+                   label = "Select Party",
+                   choices = c("Republican", "Democratic" ),
+                   selected = "Democratic"),
+      hr(),
+      # Reference map description
+      h6("Reference Map: Counties by their partisan association"),
+      h6("Red = Republican Counties | Blue = Democrat Counties"),
       
       
-                    # Map Output
-                    leafletOutput("leaflet2")
+      # Map Output
+      leafletOutput("leaflet2")
       
-                ),
-   mainPanel(
-                    tabsetPanel(tabPanel("Map", shinyjs::useShinyjs(),
-                    # Style the background and change the page
-                    tags$style(type = "text/css", ".leaflet {height: calc(100vh - 90px) !important;}
+    ),
+    mainPanel(
+      tabsetPanel(tabPanel("Map", shinyjs::useShinyjs(),
+                           # Style the background and change the page
+                           tags$style(type = "text/css", ".leaflet {height: calc(100vh - 90px) !important;}
                                body {background-color: white}"),
                            
-                    # Map Output
-                    leafletOutput("leaflet"),
-                    # Number of projects
-                    textOutput("text")
-                  
-                                        )
-                                )
-    
-            )
+                           # Map Output
+                           leafletOutput("leaflet"),
+                           # Number of projects
+                           textOutput("text")
+                           
+      )
+      )
+      
+    )
   )
 ) # UI Ends here
 
@@ -99,7 +108,7 @@ ui <- fluidPage(
 # Define server logic required to create a map
 
 server <- function(input, output) 
-  {
+{
   
   # Basic Map1
   output$leaflet <- renderLeaflet({
@@ -118,77 +127,77 @@ server <- function(input, output)
       addLayersControl(baseGroups = c("Google", "Wiki"))
   })
   
-      
-                    # Electric vehicle charging station data (Filtered data)
-                     EvDataInf <- reactive({
-                      
-                      EvInf <-  ev_data %>% 
-                      #req(input$state) # ensure availablity of value before proceeding
-                      req(input$selected_type)
-                      #req(input$bot_prob)
-                      filter(EvInf, party %in% input$selected_type) #& Created_at >= input$startdate[1] & Created_at <= input$startdate[2] & BotP >= input$bot_prob[1] & BotP <= input$bot_prob[2])
-                    
-                                          })
+  
+  # Electric vehicle charging station data (Filtered data)
+  EvDataInf <- reactive({
     
-            
-                    # Replace layer with filtered partisan data
-            observe({
-                      EvInf <- EvDataInf()
-                    
-                      leafletProxy("leaflet", data = EvInf) %>%
-                      clearGroup(group = "EvInf") %>%
-                      clearMarkerClusters() %>%
-                      addAwesomeMarkers(icon = ~icons[party], clusterOptions = markerClusterOptions(), popup = ~paste0("<b>", "</b>: ", party), group = "EvInf", layerId = ~...1)
-              })
-  
-      # Filter for county partisan data
-                 county_input <- reactive({
-                          counttt <- subset(co, party == input$selected_type)
-                                          return(counttt)
-                                          })
-      #Dataset for Republican counties
-                  Republican_counties <- subset(co, party == "Republican")
-      #Dataset for Democrat counties
-                  Democratic_counties <- subset(co, party == "Democratic")
-  
-  
+    EvInf <-  ev_data %>% 
+      #req(input$state) # ensure availablity of value before proceeding
+      req(input$selected_type)
+    #req(input$bot_prob)
+    filter(EvInf, party %in% input$selected_type) #& Created_at >= input$startdate[1] & Created_at <= input$startdate[2] & BotP >= input$bot_prob[1] & BotP <= input$bot_prob[2])
     
-    #Plot partisan county map
-      observe({
-                par_count <- county_input()
-                    # Map2 with Republican counties
-                    leafletProxy("leaflet2", data = Republican_counties) %>%
-                    clearGroup(group = "par_count") %>%
-                    addPolygons(popup = ~paste0("<b>", county_name, "</b>"), group = "county", layerId = ~GEOID, fill = FALSE, color = "red") #%>%
-                    # setView(lng = boros$longitude, lat = boros$latitude, zoom = 9)
-            })
-  
-   # Map2 with democrat counties
-      observe({
-                par_count <- county_input()
-                    # Data is par_count
-                    leafletProxy("leaflet2", data = Democratic_counties) %>%
-                    clearGroup(group = "par_count") %>%
-                    addPolygons(popup = ~paste0("<b>", county_name, "</b>"), group = "county", layerId = ~GEOID, fill = FALSE, color = "blue") #%>%
-                    # setView(lng = boros$longitude, lat = boros$latitude, zoom = 9)
-              })
+  })
   
   
-    #Subset to data Only on screen
-                 onScreen <- reactive({
-                                 req(input$leaflet_bounds)
-                                 bounds <- input$leaflet_bounds
-                                 latRng <- range(bounds$north, bounds$south)
-                                 lngRng <- range(bounds$east, bounds$west)
-                               subset(EvDataInf(), latitude >= latRng[1] & latitude <= latRng[2] &
-                               longitude >= lngRng[1] & longitude <= lngRng[2])
-                                     })
-                 
-                 output$text <- renderText({
-                   paste("You are viewing", nrow(onScreen()), "Number of Electric Charging stations on screen")
-                 })
+  # Replace layer with filtered partisan data
+  observe({
+    EvInf <- EvDataInf()
+    
+    leafletProxy("leaflet", data = EvInf) %>%
+      clearGroup(group = "EvInf") %>%
+      clearMarkerClusters() %>%
+      addAwesomeMarkers(icon = ~icons[party], clusterOptions = markerClusterOptions(), popup = ~paste0("<b>", "</b>: ", party), group = "EvInf", layerId = ~...1)
+  })
   
- }
+  # Filter for county partisan data
+  county_input <- reactive({
+    counttt <- subset(co, party == input$selected_type)
+    return(counttt)
+  })
+  #Dataset for Republican counties
+  Republican_counties <- subset(co, party == "Republican")
+  #Dataset for Democrat counties
+  Democratic_counties <- subset(co, party == "Democratic")
+  
+  
+  
+  #Plot partisan county map
+  observe({
+    par_count <- county_input()
+    # Map2 with Republican counties
+    leafletProxy("leaflet2", data = Republican_counties) %>%
+      clearGroup(group = "par_count") %>%
+      addPolygons(popup = ~paste0("<b>", county_name, "</b>"), group = "county", layerId = ~GEOID, fill = FALSE, color = "red") #%>%
+    # setView(lng = boros$longitude, lat = boros$latitude, zoom = 9)
+  })
+  
+  # Map2 with democrat counties
+  observe({
+    par_count <- county_input()
+    # Data is par_count
+    leafletProxy("leaflet2", data = Democratic_counties) %>%
+      clearGroup(group = "par_count") %>%
+      addPolygons(popup = ~paste0("<b>", county_name, "</b>"), group = "county", layerId = ~GEOID, fill = FALSE, color = "blue") #%>%
+    # setView(lng = boros$longitude, lat = boros$latitude, zoom = 9)
+  })
+  
+  
+  #Subset to data Only on screen
+  onScreen <- reactive({
+    req(input$leaflet_bounds)
+    bounds <- input$leaflet_bounds
+    latRng <- range(bounds$north, bounds$south)
+    lngRng <- range(bounds$east, bounds$west)
+    subset(EvDataInf(), latitude >= latRng[1] & latitude <= latRng[2] &
+             longitude >= lngRng[1] & longitude <= lngRng[2])
+  })
+  
+  output$text <- renderText({
+    paste("You are viewing", nrow(onScreen()), "Number of Electric Charging stations on screen")
+  })
+  
+}
 
 # Run the application 
 shinyApp(ui = ui, server = server)
