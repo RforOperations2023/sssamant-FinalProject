@@ -36,10 +36,14 @@ ev_data <- ev_data %>% rename(longitude = `Longitude`)#Renaming the column name 
 ev_data <- ev_data %>% rename(open_date = `Open Date`) #Renaming Open Date (I need an '_' in the column name for simplicity)
 ev_data$party<-str_to_title(ev_data$party) #I want all entires "Republican" or "Democratic" to be case senitive
 ev_data <- mutate(ev_data, open_date = as.Date(open_date, format= "%d-%m-%Y")) #Converting open_date to date column
+
 ev_data
+
 #-----------------------------------------------------------------------
 #create new dataframe "counties" from "ev_data"
 #Used in output for map 1 (i.e "leaflet)
+
+#County data and merging files
 counties <- ev_data %>%
   select(county_fips, county_name, State, party) %>%
   distinct() #Selecting only distinct entries of fips_number, county_name, state, party for map 1 (and for left join)
@@ -56,18 +60,17 @@ states_vector <- as.vector(unique(counties$State))
 #--------------------------------------------------------------------------------------------------
 #Loading shape file as Lines.load
 lines.load <- st_read("./cb_2018_us_county_500k/cb_2018_us_county_500k.shp")
-
-#merging .shp file with counties 
+#Joining .shp file with counties 
 co <- lines.load %>%
   left_join(counties, by = c("GEOID" = "GEOID"))
 #--------------------------------------------------------------------------------------------------
 #Defining the icons
 icons <- awesomeIconList(
-                          MS4 = makeAwesomeIcon(icon = "road", library = "fa", markerColor = "gray"),
-                          Combined = makeAwesomeIcon(icon = "cloud", library = "fa", markerColor = "blue"),
-                         `Non-combined` = makeAwesomeIcon(icon = "tint", library = "fa", markerColor = "green"),
-                         `On-site management` = makeAwesomeIcon(icon = "building-o", library = "fa", markerColor = "cadetblue")
-                        )
+  MS4 = makeAwesomeIcon(icon = "road", library = "fa", markerColor = "gray"),
+  Combined = makeAwesomeIcon(icon = "cloud", library = "fa", markerColor = "blue"),
+  `Non-combined` = makeAwesomeIcon(icon = "tint", library = "fa", markerColor = "green"),
+  `On-site management` = makeAwesomeIcon(icon = "building-o", library = "fa", markerColor = "cadetblue")
+)
 #----------------------------------------------------------------------------------------------------
 
 
@@ -83,36 +86,51 @@ ui <- fluidPage(
       #Radio Button which the user selects party they want to investigate further in the dataset
       #Outputs coverd by input: a) Map2 i.e "leaflet2"  b) plot under plot tab
       radioButtons(inputId = "selected_type",
-                   label = "Select Party",
+                   label = "Select Party [Filter for Tabs: \n1)Maps 2)Plots    \n3)Data Table]",
                    choices = c("Republican", "Democratic" ),
                    selected = "Democratic"),
       
       
       hr(),
       #2
-      # 
+      #A dropdown list that will allow a states charging infrastructure thay want to analyse
+      selectInput(inputId = "state_select", 
+                  label = "Select a state: <For Plots Tab>", 
+                  choices = states_vector),
       
       # Reference map description
-      h6("Reference Map: Counties by their associated Political party"),
+      h6("Reference Map: Counties By Their Associated Political Party (2018-2020 congressional district elections)"),
       h6("Red = Republican Counties | Blue = Democrat Counties"),
-      
-      
       # Map Output
       leafletOutput("leaflet2")
       
     ),
     mainPanel(
-      tabsetPanel(tabPanel("Map", shinyjs::useShinyjs(),
-                           # Style the background and change the page
-                           tags$style(type = "text/css", ".leaflet {height: calc(100vh - 90px) !important;}
-                               body {background-color: white}"),
-                           
-                           # Map Output
-                           leafletOutput("leaflet"),
-                           # Number of projects
-                           textOutput("text")
-                           
-      )
+      tabsetPanel(
+        
+        
+        tabPanel("Country Wise Map Analytics", shinyjs::useShinyjs(),
+                 # Style the background and change the page
+                 tags$style(type = "text/css", ".leaflet {height: calc(100vh - 90px) !important;}
+                                        body {background-color: white}"),
+                 # Map Output
+                 leafletOutput("leaflet3"),
+                 
+                 # Number of projects
+                 textOutput("text1")
+        ),
+        
+        tabPanel("State Wise Map Analytics", shinyjs::useShinyjs(),
+                 # Style the background and change the page
+                 tags$style(type = "text/css", ".leaflet {height: calc(100vh - 90px) !important;}
+                                        body {background-color: white}"),
+                 # Map Output
+                 leafletOutput("leaflet"),
+                 # Number of projects
+                 textOutput("text"))
+        
+        
+        
       )
       
     )
@@ -141,18 +159,35 @@ server <- function(input, output)
       setView(-95.7129, 37.0902, 3) %>%
       addLayersControl(baseGroups = c("Google", "Wiki"))
   })
+  output$leaflet3 <- renderLeaflet({
+    leaflet() %>%
+      addTiles(urlTemplate = "http://mt0.google.com/vt/lyrs=m&hl=en&x={x}&y={y}&z={z}&s=Ga", attribution = "Google", group = "Google") %>%
+      addProviderTiles(provider = providers$Wikimedia, group = "Wiki") %>%
+      setView(-95.7129, 37.0902, 3) %>%
+      addLayersControl(baseGroups = c("Google", "Wiki"))
+  })
   
   
-  # Electric vehicle charging station data (Filtered data)
+  # Electric vehicle charging station data (Filtered data) for statewise map
   EvDataInf <- reactive({
-    
     EvInf <-  ev_data %>% 
       #req(input$state) # ensure availablity of value before proceeding
       req(input$selected_type)
-    #req(input$bot_prob)
-    filter(EvInf, party %in% input$selected_type) #& Created_at >= input$startdate[1] & Created_at <= input$startdate[2] & BotP >= input$bot_prob[1] & BotP <= input$bot_prob[2])
+    req(input$state_select)
+    filter(EvInf, party %in% input$selected_type & State %in% input$state_select)# & Created_at <= input$startdate[2] & BotP >= input$bot_prob[1] & BotP <= input$bot_prob[2])
     
   })
+  
+  # Electric vehicle charging station data (Filtered data) for countrywise map
+  EvDataInf_country <- reactive({
+    EvInf <-  ev_data %>% 
+      #req(input$state) # ensure availablity of value before proceeding
+      req(input$selected_type)
+    filter(EvInf, party %in% input$selected_type)# & State %in% input$state_select)# & Created_at <= input$startdate[2] & BotP >= input$bot_prob[1] & BotP <= input$bot_prob[2])
+    
+  })
+  
+  
   
   
   # Replace layer with filtered partisan data
@@ -160,6 +195,16 @@ server <- function(input, output)
     EvInf <- EvDataInf()
     
     leafletProxy("leaflet", data = EvInf) %>%
+      clearGroup(group = "EvInf") %>%
+      clearMarkerClusters() %>%
+      addAwesomeMarkers(icon = ~icons[party], clusterOptions = markerClusterOptions(), popup = ~paste0("<b>", "</b>: ", party), group = "EvInf", layerId = ~...1)
+  })
+  
+  
+  observe({
+    EvInf <- EvDataInf_country()
+    
+    leafletProxy("leaflet3", data = EvInf) %>%
       clearGroup(group = "EvInf") %>%
       clearMarkerClusters() %>%
       addAwesomeMarkers(icon = ~icons[party], clusterOptions = markerClusterOptions(), popup = ~paste0("<b>", "</b>: ", party), group = "EvInf", layerId = ~...1)
@@ -208,8 +253,21 @@ server <- function(input, output)
              longitude >= lngRng[1] & longitude <= lngRng[2])
   })
   
+  onScreen_country <- reactive({
+    req(input$leaflet3_bounds)
+    bounds <- input$leaflet3_bounds
+    latRng <- range(bounds$north, bounds$south)
+    lngRng <- range(bounds$east, bounds$west)
+    subset(EvDataInf_country(), latitude >= latRng[1] & latitude <= latRng[2] &
+             longitude >= lngRng[1] & longitude <= lngRng[2])
+  })
+  
   output$text <- renderText({
     paste("You are viewing", nrow(onScreen()), "Number of Electric Charging stations on screen")
+  })
+  
+  output$text1 <- renderText({
+    paste("You are viewing", nrow(onScreen_country()), "Number of Electric Charging stations on screen")
   })
   
 }
