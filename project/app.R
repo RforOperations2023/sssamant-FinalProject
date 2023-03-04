@@ -33,52 +33,67 @@ library(tidyverse)
 ev_data <- read_csv("my_data_new.csv")
 ev_data <- ev_data %>% rename(latitude = `Latitude`) #Renaming the column name to be case sensituve
 ev_data <- ev_data %>% rename(longitude = `Longitude`)#Renaming the column name to be case sensituve
+ev_data <- ev_data %>% rename(open_date = `Open Date`) #Renaming Open Date (I need an '_' in the column name for simplicity)
 ev_data$party<-str_to_title(ev_data$party) #I want all entires "Republican" or "Democratic" to be case senitive
-
-
-# County data and merging files
+ev_data <- mutate(ev_data, open_date = as.Date(open_date, format= "%d-%m-%Y")) #Converting open_date to date column
+ev_data
+#-----------------------------------------------------------------------
+#create new dataframe "counties" from "ev_data"
+#Used in output for map 1 (i.e "leaflet)
 counties <- ev_data %>%
   select(county_fips, county_name, State, party) %>%
   distinct() #Selecting only distinct entries of fips_number, county_name, state, party for map 1 (and for left join)
-
-
 counties <- counties[complete.cases(counties), ] #Dropping all null and NaN Values
 counties <- na.omit(counties)
 counties <- counties %>% mutate(Fips_str = as.character(county_fips)) # Convert Fips_number to string column
 # Add leading zero to 4-digit numbers in Fips_str column
 counties$Fips_str <- ifelse(nchar(counties$Fips_str) == 4, paste0("0", counties$Fips_str), counties$Fips_str) #This had to be done sice the fips column is numeric, and has to be converted into a string
+counties <- counties %>% rename(GEOID = `Fips_str`)# Rename 'Fips_str' column () which has the geoid values as strings) to GEOID
 
-
-# Print the new dataframe
-counties
-counties <- counties %>% rename(GEOID = `Fips_str`)
+#Storing all unique instances of states in ev_data into states vector
+#Will be used as a hyperparameter on the Sidepanel as a select type input
+states_vector <- as.vector(unique(counties$State))
+#--------------------------------------------------------------------------------------------------
+#Loading shape file as Lines.load
 lines.load <- st_read("./cb_2018_us_county_500k/cb_2018_us_county_500k.shp")
 
-#Joining .shp file with counties 
+#merging .shp file with counties 
 co <- lines.load %>%
   left_join(counties, by = c("GEOID" = "GEOID"))
-
-
+#--------------------------------------------------------------------------------------------------
+#Defining the icons
 icons <- awesomeIconList(
-  MS4 = makeAwesomeIcon(icon = "road", library = "fa", markerColor = "gray"),
-  Combined = makeAwesomeIcon(icon = "cloud", library = "fa", markerColor = "blue"),
-  `Non-combined` = makeAwesomeIcon(icon = "tint", library = "fa", markerColor = "green"),
-  `On-site management` = makeAwesomeIcon(icon = "building-o", library = "fa", markerColor = "cadetblue"))
-
+                          MS4 = makeAwesomeIcon(icon = "road", library = "fa", markerColor = "gray"),
+                          Combined = makeAwesomeIcon(icon = "cloud", library = "fa", markerColor = "blue"),
+                         `Non-combined` = makeAwesomeIcon(icon = "tint", library = "fa", markerColor = "green"),
+                         `On-site management` = makeAwesomeIcon(icon = "building-o", library = "fa", markerColor = "cadetblue")
+                        )
+#----------------------------------------------------------------------------------------------------
 
 
 ui <- fluidPage(
   theme = shinythemes::shinytheme("yeti"),
   titlePanel(title=div(img(height = 105, width = 300, src="cs2.png") , "Politics Behind Green Energy"), windowTitle = "myBrowserTitle"),
+  
+  #Desiginging and structuring the sidebar layout
   sidebarLayout(
-    sidebarPanel(
+    sidebarPanel( #Things to be accomodated into the side bar panel
+      
+      #1
+      #Radio Button which the user selects party they want to investigate further in the dataset
+      #Outputs coverd by input: a) Map2 i.e "leaflet2"  b) plot under plot tab
       radioButtons(inputId = "selected_type",
                    label = "Select Party",
                    choices = c("Republican", "Democratic" ),
                    selected = "Democratic"),
+      
+      
       hr(),
+      #2
+      # 
+      
       # Reference map description
-      h6("Reference Map: Counties by their partisan association"),
+      h6("Reference Map: Counties by their associated Political party"),
       h6("Red = Republican Counties | Blue = Democrat Counties"),
       
       
