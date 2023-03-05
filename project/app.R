@@ -2,9 +2,18 @@
 
 
 #THE AIM OF THIS FINAL PROJECT IS TO WORK ON ANSWERING AND INVESTIGATING THE FOLLOWING QUESTION VISUALLY
-#Question How is the EV charging station infrastructure at any county in USA, 
-#co-related/associated with the political inclination of that location and its population.
-#Inputs: State, EVSE number slider, Time range
+#Question How is the EV charging station infrastructure at any county in USA provided that counties party allegience over time,
+#Reports suggest that 70% of republicans are not in favor of EV Vehicle subsidy,
+#We wanted to explore if there is any co-relation whatsoever by taking a looking at a county EV charging station infrastructure
+
+#This analysis is in no way causal. This is a simple data exploration excercise done on R shiny.
+
+
+#Inputs: State, EVSE number slider, Opening Date range.
+#Based on the inputs made,
+#Outputs:
+#you get three tabs: A) Statewise map analytics MAP  B) Plots C) Data Table
+#I have also added a countrywise map analytics tab (first tab) that shows
 
 # Libraries
 library(shiny)
@@ -152,9 +161,8 @@ ui <- fluidPage(
                    #plotOutput(outputId = ""), 
                    plotlyOutput("pie_chart"),
                    hr(), 
-                   h4("Plot 3.")
-                   #, 
-                   #plotOutput(outputId = "")
+                   h4("Plot 3."),
+                   plotlyOutput("scatter_plot")
                    )
           
       )))
@@ -162,7 +170,7 @@ ui <- fluidPage(
 #UI Ends here
 #-----------------------------------------------------------------------------------------------------------------------------------------
 
-
+#Server Begins here
 #-----------------------------------------------------------------------------------------------------------------------------------------
 server <- function(input, output) {
 
@@ -202,7 +210,7 @@ server <- function(input, output) {
   # Electric vehicle charging station data (Filtered data) for countrywise map
   EvDataInf_country <- reactive({
     EvInf <-  ev_data %>% 
-    #req(input$state) # ensure availablity of value before proceeding
+    # ensure availablity of value before proceeding
     req(input$selected_type)
     req(input$opendate)
     filter(EvInf, party %in% input$selected_type & open_date <= input$opendate[2] & open_date >= input$opendate[1])# & State %in% input$state_select)# & Created_at <= input$startdate[2] & BotP >= input$bot_prob[1] & BotP <= input$bot_prob[2])
@@ -316,26 +324,35 @@ server <- function(input, output) {
                                       })
   #-------------------------------------------------------------------------------------------------
   output$pie_chart <- renderPlotly({
-    
     categorize_ev_count <- function(x) {
-      if (x == 1) {
-        return("locations with Single outlet charging stations: ")
-      } else if (x <= 10) {
-        return("locations with atleast 10 charging stations: ")
-      } else {
-        return("Locations with multiple charging points: ")
-      }
-    }
-    
+                  if (x == 1) {
+                      return("locations with Single outlet charging stations: ")
+                } else if (x <= 10) {
+                      return("locations with atleast 10 charging stations: ")
+                } else {
+                      return("Locations with multiple charging points: ")
+                        }
+                                            }
     EVinfPie <- na.omit(EvDataInf())
-    
     plot2 <- EVinfPie %>%
-      mutate(category = sapply(EV_count, categorize_ev_count)) %>%
-      group_by(category) %>%
-      summarize(count = n())
+              mutate(category = sapply(EV_count, categorize_ev_count)) %>%
+              group_by(category) %>%
+              summarize(count = n())
     
     plot_ly(plot2, labels = ~category, values = ~count, type = "pie")
                                   })
+  
+  #------------------------------------------------------------------------
+  output$scatter_plot <- renderPlotly({
+    
+    EVinfScat <- na.omit(EvDataInf())
+    
+    df_summarized <- EVinfScat %>%
+      group_by(county_name) %>%
+      summarise(total_ev_count = sum(EV_count))
+    
+    plot_ly(df_summarized, x = ~county_name, y = ~total_ev_count, type = 'scatter', mode = 'lines+markers')
+  })
   
   
   
