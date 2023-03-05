@@ -27,9 +27,7 @@ library(tools)
 library(readr)
 library(tidyverse)
 
-
-
-# Load and clean  data ----------------------------------------------
+# Load and clean  data -------------------------------------------------------------------------------------
 ev_data <- read_csv("my_data_new.csv")
 ev_data <- ev_data %>% rename(latitude = `Latitude`) #Renaming the column name to be case sensituve
 ev_data <- ev_data %>% rename(longitude = `Longitude`)#Renaming the column name to be case sensituve
@@ -37,7 +35,6 @@ ev_data <- ev_data %>% rename(open_date = `Open Date`) #Renaming Open Date (I ne
 ev_data <- ev_data %>% rename(address = `Station Name`)
 ev_data$party<-str_to_title(ev_data$party) #I want all entires "Republican" or "Democratic" to be case senitive
 ev_data <- mutate(ev_data, open_date = as.Date(open_date, format= "%d-%m-%Y")) #Converting open_date to date column
-
 ev_data
 
 #-----------------------------------------------------------------------
@@ -76,125 +73,130 @@ icons <- awesomeIconList(
 
 
 ui <- fluidPage(
-  theme = shinythemes::shinytheme("yeti"),
-  titlePanel(title=div(img(height = 105, width = 300, src="cs2.png") , "Politics Behind Green Energy"), windowTitle = "myBrowserTitle"),
+    theme = shinythemes::shinytheme("yeti"),
+    #Title Panel
+    titlePanel(title=div(img(height = 105, width = 300, src="cs2.png") , "Politics Behind Green Energy"), windowTitle = "myBrowserTitle"),
   
-  #Desiginging and structuring the sidebar layout
-  sidebarLayout(
-    sidebarPanel( #Things to be accomodated into the side bar panel
+    #Designing and structuring the sidebar layout
+    sidebarLayout(
       
-      #1
+      sidebarPanel( #Things to be accomodated into the side bar panel
+      ### INPUT 1---------------------------------------------------------------------------------------
       #Radio Button which the user selects party they want to investigate further in the dataset
       #Outputs coverd by input: a) Map2 i.e "leaflet2"  b) plot under plot tab
       radioButtons(inputId = "selected_type",
-                   label = "Select Party [Filter for Tabs: \n1)Maps 2)Plots    \n3)Data Table]",
+                   label = "Select Party",
                    choices = c("Republican", "Democratic" ),
                    selected = "Democratic"),
-      
-      
       hr(),
-      #2
-      #A dropdown list that will allow a states charging infrastructure thay want to analyse
+      ### INPUT 2---------------------------------------------------------------------------------------
+      #A drop down list that will allow a states charging infrastructure thay want to analyse
       selectInput(inputId = "state_select", 
-                  label = "Select a state: <For Plots Tab>", 
+                  label = "Select a state:", 
                   choices = states_vector),
-      #4
+      hr(),
+      ### INPUT 3---------------------------------------------------------------------------------------
+      #Adding a date slider input for filtering opening date
+      sliderInput(inputId = "opendate",
+                  label = "Select Date Range for analysis:", 
+                  min = as.Date("2013-02-10"), max = as.Date("2023-02-10"), 
+                  value = c(as.Date("2013-02-10"), as.Date("2023-02-10"))),
+      
+      ### INPUT 4---------------------------------------------------------------------------------------
       # Add Download Button
       downloadButton("downloadData", "Download"),
       h6("Press the download button to save the dataset you are looking at."),
       
-      #5
+      ### MAP OUTPUT 'leaflet2'-------------------------------------------------------------------------
       # Reference map description
       h6("Reference Map: Counties By Their Associated Political Party (2018-2020 congressional district elections)"),
       h6("Red = Republican Counties | Blue = Democrat Counties"),
       # Map Output
       leafletOutput("leaflet2")
-      
-    ),
-    mainPanel(
-      tabsetPanel(
-        #--------------------------------------------------------------------
-        tabPanel("Country Wise Map Analytics", shinyjs::useShinyjs(),
-                 # Style the background and change the page
-                 tags$style(type = "text/css", ".leaflet {height: calc(100vh - 90px) !important;}
+      ),
+#--------------------------------------------------------------------
+      mainPanel(
+        tabsetPanel(
+          
+          ### TAB 1-----------------------------------------------------
+          tabPanel("Country Wise Map Analytics", shinyjs::useShinyjs(),
+                    # Style the background and change the page
+                    tags$style(type = "text/css", ".leaflet {height: calc(100vh - 90px) !important;}
                                         body {background-color: white}"),
-                 # Map Output
-                 leafletOutput("leaflet3"),
-                 
-                 # Number of projects
-                 textOutput("text1")),
-        #-------------------------------------------------------------
-        tabPanel("State Wise Map Analytics", shinyjs::useShinyjs(),
-                 # Style the background and change the page
-                 tags$style(type = "text/css", ".leaflet {height: calc(100vh - 90px) !important;}
+                    # Map Output
+                    leafletOutput("leaflet3"),
+                    # Number of projects
+                    textOutput("text1")),
+          
+          ### TAB 2----------------------------------------------------
+          tabPanel("State Wise Map Analytics", shinyjs::useShinyjs(),
+                    # Style the background and change the page
+                    tags$style(type = "text/css", ".leaflet {height: calc(100vh - 90px) !important;}
                                         body {background-color: white}"),
-                 # Map Output
-                 leafletOutput("leaflet"),
-                 # Number of projects
-                 textOutput("text")),
-        #--------------------------------------------------------------
-        tabPanel("Data Table output",
-                 fluidPage(
-                   wellPanel(DT::dataTableOutput("table"))
-                 ))
-        
-        
+                    # Map Output
+                    leafletOutput("leaflet"),
+                    # Number of projects
+                    textOutput("text")),
+          
+          ### TAB 3----------------------------------------------------
+          tabPanel("Data Table output",
+                   fluidPage(
+                   wellPanel(DT::dataTableOutput("table"))))
       )))
 ) 
 #UI Ends here
+#-----------------------------------------------------------------------------------------------------------------------------------------
 
 
-#Define server logic required to create a map
-
+#-----------------------------------------------------------------------------------------------------------------------------------------
 server <- function(input, output) {
-  
-  # Basic Map1 (Output for State-wise ev_data centers)
-  output$leaflet <- renderLeaflet({
-    leaflet() %>%
-      addTiles(urlTemplate = "http://mt0.google.com/vt/lyrs=m&hl=en&x={x}&y={y}&z={z}&s=Ga", attribution = "Google", group = "Google") %>%
-      addProviderTiles(provider = providers$Wikimedia, group = "Wiki") %>%
-      setView(-74.0060, 40.7128, 3) %>%
-      addLayersControl(baseGroups = c("Google", "Wiki"))
-  })
-  # Basic Map 2 
-  output$leaflet2 <- renderLeaflet({
-    leaflet() %>%
-      addTiles(urlTemplate = "http://mt0.google.com/vt/lyrs=m&hl=en&x={x}&y={y}&z={z}&s=Ga", attribution = "Google", group = "Google") %>%
-      addProviderTiles(provider = providers$Wikimedia, group = "Wiki") %>%
-      setView(-95.7129, 37.0902, 3) %>%
-      addLayersControl(baseGroups = c("Google", "Wiki"))
-  })
-  # Basic Map 3 (Output for country-wise ev_data centers)
-  output$leaflet3 <- renderLeaflet({
-    leaflet() %>%
-      addTiles(urlTemplate = "http://mt0.google.com/vt/lyrs=m&hl=en&x={x}&y={y}&z={z}&s=Ga", attribution = "Google", group = "Google") %>%
-      addProviderTiles(provider = providers$Wikimedia, group = "Wiki") %>%
-      setView(-95.7129, 37.0902, 3) %>%
-      addLayersControl(baseGroups = c("Google", "Wiki"))
-  })
+
+### Define server logic required to create a map-------------------------------------------------------------------------------------  
+    #Basic Map1 (Output for State-wise ev_data centers)
+        output$leaflet <- renderLeaflet({
+                        leaflet() %>%
+                        addTiles(urlTemplate = "http://mt0.google.com/vt/lyrs=m&hl=en&x={x}&y={y}&z={z}&s=Ga", attribution = "Google", group = "Google") %>%
+                        addProviderTiles(provider = providers$Wikimedia, group = "Wiki") %>%
+                        setView(-74.0060, 40.7128, 3) %>%
+                        addLayersControl(baseGroups = c("Google", "Wiki"))})
+    # Basic Map 2 
+        output$leaflet2 <- renderLeaflet({
+                        leaflet() %>%
+                        addTiles(urlTemplate = "http://mt0.google.com/vt/lyrs=m&hl=en&x={x}&y={y}&z={z}&s=Ga", attribution = "Google", group = "Google") %>%
+                        addProviderTiles(provider = providers$Wikimedia, group = "Wiki") %>%
+                        setView(-95.7129, 37.0902, 3) %>%
+                        addLayersControl(baseGroups = c("Google", "Wiki"))})
+    # Basic Map 3 (Output for country-wise ev_data centers)
+        output$leaflet3 <- renderLeaflet({
+                        leaflet() %>%
+                        addTiles(urlTemplate = "http://mt0.google.com/vt/lyrs=m&hl=en&x={x}&y={y}&z={z}&s=Ga", attribution = "Google", group = "Google") %>%
+                        addProviderTiles(provider = providers$Wikimedia, group = "Wiki") %>%
+                        setView(-95.7129, 37.0902, 3) %>%
+                        addLayersControl(baseGroups = c("Google", "Wiki"))})
   
   #-----------------------------------------------------------------------------------------------------      
   # Electric vehicle charging station data (Filtered data) for statewise map
   EvDataInf <- reactive({
     EvInf <-  ev_data %>% 
-      #req(input$state) # ensure availablity of value before proceeding
-      req(input$selected_type)
+    req(input$selected_type)
     req(input$state_select)
-    filter(EvInf, party %in% input$selected_type & State %in% input$state_select)# & Created_at <= input$startdate[2] & BotP >= input$bot_prob[1] & BotP <= input$bot_prob[2])
+    req(input$opendate)
+    filter(EvInf, party %in% input$selected_type & State %in% input$state_select & open_date <= input$opendate[2] & open_date >= input$opendate[1])
     
-  })
+                        })
   # Electric vehicle charging station data (Filtered data) for countrywise map
   EvDataInf_country <- reactive({
     EvInf <-  ev_data %>% 
-      #req(input$state) # ensure availablity of value before proceeding
-      req(input$selected_type)
-    filter(EvInf, party %in% input$selected_type)# & State %in% input$state_select)# & Created_at <= input$startdate[2] & BotP >= input$bot_prob[1] & BotP <= input$bot_prob[2])
+    #req(input$state) # ensure availablity of value before proceeding
+    req(input$selected_type)
+    req(input$opendate)
+    filter(EvInf, party %in% input$selected_type & open_date <= input$opendate[2] & open_date >= input$opendate[1])# & State %in% input$state_select)# & Created_at <= input$startdate[2] & BotP >= input$bot_prob[1] & BotP <= input$bot_prob[2])
     
-  })
+                        })
   
-  #------------------------------------------------------------------------------------------------------
-  # Replace layer with filtered partisan data 
-  #For Leaflet and leaflet3
+#------------------------------------------------------------------------------------------------------
+#Replace layer with filtered partisan data 
+#For Leaflet and leaflet3
   observe({
     EvInf <- EvDataInf()
     
@@ -211,9 +213,9 @@ server <- function(input, output) {
       clearMarkerClusters() %>%
       addAwesomeMarkers(icon = ~icons[party], clusterOptions = markerClusterOptions(), popup = ~paste0("<b>", "</b>: ", party), group = "EvInf", layerId = ~...1)
   })
-  #-----------------------------------------------------------------------------------------
-  #For Leaflet 2             
-  # Filter for county partisan data
+#-----------------------------------------------------------------------------------------
+#For Leaflet 2             
+#Filter for county partisan data
   county_input <- reactive({
     counttt <- subset(co, party == input$selected_type)
     return(counttt)
