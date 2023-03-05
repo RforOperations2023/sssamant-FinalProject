@@ -141,7 +141,20 @@ ui <- fluidPage(
           ### TAB 3----------------------------------------------------
           tabPanel("Data Table output",
                    fluidPage(
-                   wellPanel(DT::dataTableOutput("table"))))
+                   wellPanel(DT::dataTableOutput("table")))),
+          ### TAB 4----------------------------------------------------
+          tabPanel("plots", 
+                   h4("Distribution by Date."), 
+                   #plotOutput(outputId = "plot_dist"), 
+                   hr(), 
+                   h4("Positive Negative Distribution."), 
+                   #plotOutput(outputId = "plot_NegPos"), 
+                   hr(), 
+                   h4("Distribution by sentiment.")
+                   #, 
+                   #plotOutput(outputId = "plot_senti")
+                   )
+          
       )))
 ) 
 #UI Ends here
