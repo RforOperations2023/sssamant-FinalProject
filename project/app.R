@@ -85,7 +85,7 @@ icons <- awesomeIconList(
 ui <- fluidPage(
     theme = shinythemes::shinytheme("yeti"),
     #Title Panel
-    titlePanel(title=div(img(height = 105, width = 300, src="cs2.png") , "Politics Behind Green Energy"), windowTitle = "myBrowserTitle"),
+    titlePanel(title=div(img(height = 105, width = 300, src="cs2.png") , " Politics Behind Green Energy"), windowTitle = "myBrowserTitle"),
   
     #Designing and structuring the sidebar layout
     sidebarLayout(
@@ -133,6 +133,9 @@ ui <- fluidPage(
                     # Style the background and change the page
                     tags$style(type = "text/css", ".leaflet {height: calc(100vh - 90px) !important;}
                                         body {background-color: white}"),
+                    h4("Input: Select party and date range :"),
+                    h4("Output: Distribution of ev charging stations in counties across the entire nation for a given party democratic/republican"),
+                   
                     # Map Output
                     leafletOutput("leaflet3"),
                     # Number of projects
@@ -143,6 +146,11 @@ ui <- fluidPage(
                     # Style the background and change the page
                     tags$style(type = "text/css", ".leaflet {height: calc(100vh - 90px) !important;}
                                         body {background-color: white}"),
+                    h4("Input: Select state, party and date range :"),
+                    h4("Output: Gives you only electric charging station locations for republican/democratic counties of a state in a given date range"),
+                    h6("Note: You may not see the map intearct right away, please look at the number of points plotted below the map, if the number 'electric charging stations:' is greater than 0, then re-enter inputs for the points to show"),
+                   
+                   
                     # Map Output
                     leafletOutput("leaflet"),
                     # Number of projects
@@ -154,14 +162,22 @@ ui <- fluidPage(
                    wellPanel(DT::dataTableOutput("table")))),
           ### TAB 4----------------------------------------------------
           tabPanel("plots", 
-                   h4("Plot 1."), 
+                   h4("Plot 1.  "),
+                   h6("Input: Select state, party and date range :"),
+                   h6("output: Number of new ev charging stations added for democratic/republican counties in the State vs year"),
+                   h6("Intuition: If the number of charging stations added per year are stagnant or decreasing, further investigation of State's counties EV sentiment needs to be assesed "),
                    plotlyOutput("ev_count_plot"), 
                    hr(), 
                    h4("Plot 2."), 
-                   #plotOutput(outputId = ""), 
+                   h6("Input: Select state, party and date range :"),
+                   h6("output: A share of single point and multipoint charging stations in the state for its democratic/republican counties"),
+                   h6("Intuition: we can interpret that states (with either democratic or republican counties with higher percentage of multipoint charging stations have a positive perception of EV subsidy"),
                    plotlyOutput("pie_chart"),
                    hr(), 
                    h4("Plot 3."),
+                   h6("Input: Select state, party and date range :"),
+                   h6("output: A scatter plot (for republican or Democratic counties, based on the input) and their distribution of the number of counts of charging stations they have"),
+                   h6("Intuition: This is to be used for summary statistics, toggle between the party inputs to see the differences for democratic and republican counties"),
                    plotlyOutput("scatter_plot")
                    )
           
@@ -213,7 +229,7 @@ server <- function(input, output) {
     # ensure availablity of value before proceeding
     req(input$selected_type)
     req(input$opendate)
-    filter(EvInf, party %in% input$selected_type & open_date <= input$opendate[2] & open_date >= input$opendate[1])# & State %in% input$state_select)# & Created_at <= input$startdate[2] & BotP >= input$bot_prob[1] & BotP <= input$bot_prob[2])
+    filter(EvInf, party %in% input$selected_type & open_date <= input$opendate[2] & open_date >= input$opendate[1])
     
                         })
   
@@ -226,7 +242,7 @@ server <- function(input, output) {
     leafletProxy("leaflet", data = EvInf) %>%
       clearGroup(group = "EvInf") %>%
       clearMarkerClusters() %>%
-      addAwesomeMarkers(icon = ~icons[party], clusterOptions = markerClusterOptions(), popup = ~paste0("<b>", "</b>: ", party), group = "EvInf", layerId = ~...1)
+      addAwesomeMarkers(icon = ~icons[party], clusterOptions = markerClusterOptions(), popup = ~paste0("<b>", "</b>: ", address), group = "EvInf", layerId = ~...1)
   })
   
   observe({
@@ -269,7 +285,7 @@ server <- function(input, output) {
     
   })
   
-  #-------------------------------------------------------------------------------------------  
+#-------------------------------------------------------------------------------------------  
   #For Text Output seen on the screen below the maps
   onScreen <- reactive({
     req(input$leaflet_bounds)
