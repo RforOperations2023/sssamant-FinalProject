@@ -150,6 +150,7 @@ ui <- fluidPage(
                    hr(), 
                    h4("Plot 2."), 
                    #plotOutput(outputId = ""), 
+                   plotlyOutput("pie_chart"),
                    hr(), 
                    h4("Plot 3.")
                    #, 
@@ -299,15 +300,42 @@ server <- function(input, output) {
     
   content = function(file) {
     write.csv(EvDataInf(), file)})
-  #---------------------------------------------------------------------------------
+  #-----------------------------------------------------------------------------------------------
   #Plots
   output$ev_count_plot <- renderPlotly({
     plot1 <- EvDataInf() %>%
-      group_by(year = lubridate::year(open_date)) %>%
-      summarize(total_count = sum(`EV_count`))
-    plot_ly(plot1, x = ~year, y = ~total_count, type = "bar")
-  })
-  
+            group_by(year = lubridate::year(open_date)) %>%
+            summarize(total_count = sum(`EV_count`))
+            plot_ly(plot1, x = ~year, y = ~total_count, type = "bar") %>%
+                  layout(
+                          margin = list(l = 50, r = 50, b = 50, t = 50, pad = 4),
+                          xaxis = list(title = "Year", tickmode = "linear", tick0 = min(plot1$year), dtick = 1),
+                          yaxis = list(title = "Total Count of EV Charging points added per year"),
+                          bargap = 0.1,bargroupgap = 0.2)
+      
+                                      })
+  #-------------------------------------------------------------------------------------------------
+  output$pie_chart <- renderPlotly({
+    
+    categorize_ev_count <- function(x) {
+      if (x == 1) {
+        return("locations with Single outlet charging stations: ")
+      } else if (x <= 10) {
+        return("locations with atleast 10 charging stations: ")
+      } else {
+        return("Locations with multiple charging points: ")
+      }
+    }
+    
+    EVinfPie <- na.omit(EvDataInf())
+    
+    plot2 <- EVinfPie %>%
+      mutate(category = sapply(EV_count, categorize_ev_count)) %>%
+      group_by(category) %>%
+      summarize(count = n())
+    
+    plot_ly(plot2, labels = ~category, values = ~count, type = "pie")
+                                  })
   
   
   
