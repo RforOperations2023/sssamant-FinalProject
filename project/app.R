@@ -33,6 +33,7 @@ ev_data <- ev_data %>% rename(latitude = `Latitude`) #Renaming the column name t
 ev_data <- ev_data %>% rename(longitude = `Longitude`)#Renaming the column name to be case sensituve
 ev_data <- ev_data %>% rename(open_date = `Open Date`) #Renaming Open Date (I need an '_' in the column name for simplicity)
 ev_data <- ev_data %>% rename(address = `Station Name`)
+ev_data <- ev_data %>% rename(EV_count = `EV Level2 EVSE Num`)
 ev_data$party<-str_to_title(ev_data$party) #I want all entires "Republican" or "Democratic" to be case senitive
 ev_data <- mutate(ev_data, open_date = as.Date(open_date, format= "%d-%m-%Y")) #Converting open_date to date column
 ev_data
@@ -144,15 +145,15 @@ ui <- fluidPage(
                    wellPanel(DT::dataTableOutput("table")))),
           ### TAB 4----------------------------------------------------
           tabPanel("plots", 
-                   h4("Distribution by Date."), 
-                   #plotOutput(outputId = "plot_dist"), 
+                   h4("Plot 1."), 
+                   plotlyOutput("ev_count_plot"), 
                    hr(), 
-                   h4("Positive Negative Distribution."), 
-                   #plotOutput(outputId = "plot_NegPos"), 
+                   h4("Plot 2."), 
+                   #plotOutput(outputId = ""), 
                    hr(), 
-                   h4("Distribution by sentiment.")
+                   h4("Plot 3.")
                    #, 
-                   #plotOutput(outputId = "plot_senti")
+                   #plotOutput(outputId = "")
                    )
           
       )))
@@ -298,6 +299,18 @@ server <- function(input, output) {
     
   content = function(file) {
     write.csv(EvDataInf(), file)})
+  #---------------------------------------------------------------------------------
+  #Plots
+  output$ev_count_plot <- renderPlotly({
+    plot1 <- EvDataInf() %>%
+      group_by(year = lubridate::year(open_date)) %>%
+      summarize(total_count = sum(`EV_count`))
+    plot_ly(plot1, x = ~year, y = ~total_count, type = "bar")
+  })
+  
+  
+  
+  
 }
 
 # Run the application 
