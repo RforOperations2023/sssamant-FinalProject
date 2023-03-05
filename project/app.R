@@ -34,6 +34,7 @@ ev_data <- read_csv("my_data_new.csv")
 ev_data <- ev_data %>% rename(latitude = `Latitude`) #Renaming the column name to be case sensituve
 ev_data <- ev_data %>% rename(longitude = `Longitude`)#Renaming the column name to be case sensituve
 ev_data <- ev_data %>% rename(open_date = `Open Date`) #Renaming Open Date (I need an '_' in the column name for simplicity)
+ev_data <- ev_data %>% rename(address = `Station Name`)
 ev_data$party<-str_to_title(ev_data$party) #I want all entires "Republican" or "Democratic" to be case senitive
 ev_data <- mutate(ev_data, open_date = as.Date(open_date, format= "%d-%m-%Y")) #Converting open_date to date column
 
@@ -107,8 +108,7 @@ ui <- fluidPage(
     ),
     mainPanel(
       tabsetPanel(
-        
-        
+        #--------------------------------------------------------------------
         tabPanel("Country Wise Map Analytics", shinyjs::useShinyjs(),
                  # Style the background and change the page
                  tags$style(type = "text/css", ".leaflet {height: calc(100vh - 90px) !important;}
@@ -117,9 +117,8 @@ ui <- fluidPage(
                  leafletOutput("leaflet3"),
                  
                  # Number of projects
-                 textOutput("text1")
-        ),
-        
+                 textOutput("text1")),
+        #-------------------------------------------------------------
         tabPanel("State Wise Map Analytics", shinyjs::useShinyjs(),
                  # Style the background and change the page
                  tags$style(type = "text/css", ".leaflet {height: calc(100vh - 90px) !important;}
@@ -127,23 +126,24 @@ ui <- fluidPage(
                  # Map Output
                  leafletOutput("leaflet"),
                  # Number of projects
-                 textOutput("text"))
+                 textOutput("text")),
+        #--------------------------------------------------------------
+        tabPanel("Data Table output",
+                 fluidPage(
+                   wellPanel(DT::dataTableOutput("table"))
+                 ))
         
         
-        
-      )
-      
-    )
-  )
-) # UI Ends here
+      )))
+) 
+#UI Ends here
 
 
-# Define server logic required to create a map
+#Define server logic required to create a map
 
-server <- function(input, output) 
-{
+server <- function(input, output) {
   
-  # Basic Map1
+  # Basic Map1 (Output for State-wise ev_data centers)
   output$leaflet <- renderLeaflet({
     leaflet() %>%
       addTiles(urlTemplate = "http://mt0.google.com/vt/lyrs=m&hl=en&x={x}&y={y}&z={z}&s=Ga", attribution = "Google", group = "Google") %>%
@@ -151,7 +151,7 @@ server <- function(input, output)
       setView(-74.0060, 40.7128, 3) %>%
       addLayersControl(baseGroups = c("Google", "Wiki"))
   })
-  # Basic Map 2
+  # Basic Map 2 
   output$leaflet2 <- renderLeaflet({
     leaflet() %>%
       addTiles(urlTemplate = "http://mt0.google.com/vt/lyrs=m&hl=en&x={x}&y={y}&z={z}&s=Ga", attribution = "Google", group = "Google") %>%
@@ -159,6 +159,7 @@ server <- function(input, output)
       setView(-95.7129, 37.0902, 3) %>%
       addLayersControl(baseGroups = c("Google", "Wiki"))
   })
+  # Basic Map 3 (Output for country-wise ev_data centers)
   output$leaflet3 <- renderLeaflet({
     leaflet() %>%
       addTiles(urlTemplate = "http://mt0.google.com/vt/lyrs=m&hl=en&x={x}&y={y}&z={z}&s=Ga", attribution = "Google", group = "Google") %>%
@@ -167,7 +168,7 @@ server <- function(input, output)
       addLayersControl(baseGroups = c("Google", "Wiki"))
   })
   
-  
+  #-----------------------------------------------------------------------------------------------------      
   # Electric vehicle charging station data (Filtered data) for statewise map
   EvDataInf <- reactive({
     EvInf <-  ev_data %>% 
@@ -177,7 +178,6 @@ server <- function(input, output)
     filter(EvInf, party %in% input$selected_type & State %in% input$state_select)# & Created_at <= input$startdate[2] & BotP >= input$bot_prob[1] & BotP <= input$bot_prob[2])
     
   })
-  
   # Electric vehicle charging station data (Filtered data) for countrywise map
   EvDataInf_country <- reactive({
     EvInf <-  ev_data %>% 
@@ -187,10 +187,9 @@ server <- function(input, output)
     
   })
   
-  
-  
-  
-  # Replace layer with filtered partisan data
+  #------------------------------------------------------------------------------------------------------
+  # Replace layer with filtered partisan data 
+  #For Leaflet and leaflet3
   observe({
     EvInf <- EvDataInf()
     
@@ -200,16 +199,15 @@ server <- function(input, output)
       addAwesomeMarkers(icon = ~icons[party], clusterOptions = markerClusterOptions(), popup = ~paste0("<b>", "</b>: ", party), group = "EvInf", layerId = ~...1)
   })
   
-  
   observe({
     EvInf <- EvDataInf_country()
-    
     leafletProxy("leaflet3", data = EvInf) %>%
       clearGroup(group = "EvInf") %>%
       clearMarkerClusters() %>%
       addAwesomeMarkers(icon = ~icons[party], clusterOptions = markerClusterOptions(), popup = ~paste0("<b>", "</b>: ", party), group = "EvInf", layerId = ~...1)
   })
-  
+  #-----------------------------------------------------------------------------------------
+  #For Leaflet 2             
   # Filter for county partisan data
   county_input <- reactive({
     counttt <- subset(co, party == input$selected_type)
@@ -221,7 +219,6 @@ server <- function(input, output)
   Democratic_counties <- subset(co, party == "Democratic")
   
   
-  
   #Plot partisan county map
   observe({
     par_count <- county_input()
@@ -229,7 +226,7 @@ server <- function(input, output)
     leafletProxy("leaflet2", data = Republican_counties) %>%
       clearGroup(group = "par_count") %>%
       addPolygons(popup = ~paste0("<b>", county_name, "</b>"), group = "county", layerId = ~GEOID, fill = FALSE, color = "red") #%>%
-    # setView(lng = boros$longitude, lat = boros$latitude, zoom = 9)
+    
   })
   
   # Map2 with democrat counties
@@ -239,11 +236,11 @@ server <- function(input, output)
     leafletProxy("leaflet2", data = Democratic_counties) %>%
       clearGroup(group = "par_count") %>%
       addPolygons(popup = ~paste0("<b>", county_name, "</b>"), group = "county", layerId = ~GEOID, fill = FALSE, color = "blue") #%>%
-    # setView(lng = boros$longitude, lat = boros$latitude, zoom = 9)
+    
   })
   
-  
-  #Subset to data Only on screen
+  #-------------------------------------------------------------------------------------------  
+  #For Text Output seen on the screen below the maps
   onScreen <- reactive({
     req(input$leaflet_bounds)
     bounds <- input$leaflet_bounds
@@ -270,6 +267,10 @@ server <- function(input, output)
     paste("You are viewing", nrow(onScreen_country()), "Number of Electric Charging stations on screen")
   })
   
+  #------------------------------------------------------------------------------
+  output$table <- DT::renderDataTable({
+    subset(EvDataInf(),select = c(address, State, county_name, party, open_date))
+  })
 }
 
 # Run the application 
