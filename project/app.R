@@ -109,8 +109,8 @@ ui <- fluidPage(
       #Adding a date slider input for filtering opening date
       sliderInput(inputId = "opendate",
                   label = "Select Date Range for analysis:", 
-                  min = as.Date("2013-02-10"), max = as.Date("2023-02-10"), 
-                  value = c(as.Date("2013-02-10"), as.Date("2023-02-10"))),
+                  min = as.Date("1997-02-10"), max = as.Date("2023-02-10"), 
+                  value = c(as.Date("1997-02-10"), as.Date("2023-02-10"))),
       
       ### INPUT 4---------------------------------------------------------------------------------------
       # Add Download Button
