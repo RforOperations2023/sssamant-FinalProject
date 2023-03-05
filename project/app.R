@@ -14,7 +14,7 @@
 #Outputs:
 #you get three tabs: A) Statewise map analytics MAP  B) Plots C) Data Table
 #I have also added a countrywise map analytics tab (first tab) that shows
-
+# 
 # Libraries
 library(shiny)
 library(shinythemes)
