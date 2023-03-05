@@ -98,7 +98,12 @@ ui <- fluidPage(
       selectInput(inputId = "state_select", 
                   label = "Select a state: <For Plots Tab>", 
                   choices = states_vector),
+      #4
+      # Add Download Button
+      downloadButton("downloadData", "Download"),
+      h6("Press the download button to save the dataset you are looking at."),
       
+      #5
       # Reference map description
       h6("Reference Map: Counties By Their Associated Political Party (2018-2020 congressional district elections)"),
       h6("Red = Republican Counties | Blue = Democrat Counties"),
@@ -270,7 +275,14 @@ server <- function(input, output) {
   #------------------------------------------------------------------------------
   output$table <- DT::renderDataTable({
     subset(EvDataInf(),select = c(address, State, county_name, party, open_date))
-  })
+    })
+  
+  #Download button
+  output$downloadData <- downloadHandler(filename = function() {
+    paste("ev-state-party ", Sys.Date(), ".csv", sep="")},
+    
+  content = function(file) {
+    write.csv(EvDataInf(), file)})
 }
 
 # Run the application 
